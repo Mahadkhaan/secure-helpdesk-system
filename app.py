@@ -36,13 +36,9 @@ def create_app(config_class=Config):
     app.register_blueprint(admin_bp)
     app.register_blueprint(user_bp)
 
-    # ── Security headers ───────────────────────────────────────────────────────
-    # Applied to every response regardless of blueprint.
-    # CSP notes:
-    #   script-src: only 'self' and jsDelivr (Bootstrap JS) — no inline scripts exist
-    #   style-src:  'unsafe-inline' is required because templates use inline style=""
-    #               attributes (e.g. max-width, max-height); removing them is left as
-    #               a future hardening step once a static CSS file is introduced
+    # Security headers — applied to every response via after_request.
+    # style-src needs 'unsafe-inline' because templates use inline style="" attributes;
+    # script-src intentionally has no 'unsafe-inline'.
     @app.after_request
     def set_security_headers(response):
         response.headers['X-Content-Type-Options'] = 'nosniff'

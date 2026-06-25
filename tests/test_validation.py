@@ -9,7 +9,6 @@ def test_register_invalid_email(client):
         'email': 'not-an-email',
         'password': 'StrongPass1!',
     }, follow_redirects=True)
-    # WTForms Email validator rejects the value; form re-renders with an error.
     assert response.status_code == 200
     assert b'User Register' in response.data or b'Invalid email' in response.data
     assert b'Registration successful' not in response.data

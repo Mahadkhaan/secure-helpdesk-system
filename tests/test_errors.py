@@ -58,8 +58,7 @@ def test_admin_register_code_not_configured(app):
             'password': 'HackerPass1!',
             'registration_code': '',
         }, follow_redirects=True)
-        # The route redirects to home.html. home.html has no flash block, so we
-        # confirm we landed on the home page rather than the registration form.
+        # home.html has no flash block, so check the page title instead of a flash message.
         assert b'Support Ticket System' in response.data
         assert b'Admin Registration' not in response.data
         _db.drop_all()

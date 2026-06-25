@@ -2,8 +2,7 @@ import os
 
 
 class Config:
-    # Loaded from environment; no hardcoded fallback in production.
-    # For local development set these in a .env file (see .env.example).
+    # Set these in .env locally (see .env.example); never rely on the defaults in production.
     SECRET_KEY = os.environ.get('SECRET_KEY', 'change-me-before-deploying')
     SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL', 'sqlite:///support.db')
     SQLALCHEMY_TRACK_MODIFICATIONS = False
