@@ -47,8 +47,18 @@
         <label for="password" class="form-label">Password</label>
         <input type="password" name="password" id="password"
                class="form-control{% if form.password.errors %} is-invalid{% endif %}" />
-        <div class="form-text">Minimum 8 characters.</div>
+        <div class="form-text">Min 8 chars, uppercase, lowercase, digit, special character.</div>
         {% for error in form.password.errors %}
+          <div class="invalid-feedback">{{ error }}</div>
+        {% endfor %}
+      </div>
+      <div class="mb-3">
+        <label for="registration_code" class="form-label">Admin Registration Code</label>
+        <input type="password" name="registration_code" id="registration_code"
+               class="form-control{% if form.registration_code.errors %} is-invalid{% endif %}"
+               autocomplete="off" />
+        <div class="form-text">Provided by an existing administrator.</div>
+        {% for error in form.registration_code.errors %}
           <div class="invalid-feedback">{{ error }}</div>
         {% endfor %}
       </div>

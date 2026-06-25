@@ -10,7 +10,7 @@ from flask_migrate import Migrate
 from flask_wtf import CSRFProtect
 from config import Config
 from forms import (AdminLoginForm, UserLoginForm, AdminRegisterForm,
-                   UserRegisterForm, TicketForm, CommentForm)
+                   UserRegisterForm, TicketForm, CommentForm, VALID_STATUS_VALUES)
 
 app = Flask(__name__)
 app.config.from_object(Config)
@@ -58,10 +58,21 @@ def admin_login():
 
 @app.route('/register/admin', methods=['GET', 'POST'])
 def admin_register():
+    # Block entirely when no registration code has been configured.
+    reg_code = app.config.get('ADMIN_REGISTRATION_CODE', '')
+    if not reg_code:
+        flash('Admin registration is disabled. Contact an existing administrator.', 'danger')
+        return redirect(url_for('home'))
+
     if current_user.is_authenticated:
         return redirect(url_for('dashboard'))
+
     form = AdminRegisterForm()
     if form.validate_on_submit():
+        # Validate the secret code before touching the database.
+        if form.registration_code.data != reg_code:
+            flash('Invalid registration code.', 'danger')
+            return render_template('register_admin.html', form=form)
         if User.query.filter_by(email=form.email.data).first():
             flash('Email already registered.', 'danger')
             return render_template('register_admin.html', form=form)
@@ -150,20 +161,29 @@ def admin_dashboard():
             ticket_id = request.form.get('ticket_id', type=int)
             ticket = Ticket.query.get_or_404(ticket_id)
 
-            title = request.form.get('title')
-            description = request.form.get('description')
-            status = request.form.get('status')
+            title            = (request.form.get('title') or '').strip()
+            description      = (request.form.get('description') or '').strip()
+            status           = (request.form.get('status') or '').strip()
             category_id_form = request.form.get('category_id', type=int)
 
             updated = False
 
             if title:
+                if not (3 <= len(title) <= 100):
+                    flash('Title must be between 3 and 100 characters.', 'danger')
+                    return redirect(url_for('admin_dashboard'))
                 ticket.title = title
                 updated = True
             if description:
+                if len(description) < 10:
+                    flash('Description must be at least 10 characters.', 'danger')
+                    return redirect(url_for('admin_dashboard'))
                 ticket.description = description
                 updated = True
             if status:
+                if status not in VALID_STATUS_VALUES:
+                    flash('Invalid status value.', 'danger')
+                    return redirect(url_for('admin_dashboard'))
                 ticket.status = status
                 updated = True
             if category_id_form is not None:
@@ -184,28 +204,6 @@ def admin_dashboard():
             db.session.delete(ticket)
             db.session.commit()
             flash('Ticket deleted successfully.', 'success')
-            return redirect(url_for('admin_dashboard'))
-
-        elif action == 'create':
-            title = request.form.get('title')
-            description = request.form.get('description')
-            status = request.form.get('status', 'Open')
-            category_id_form = request.form.get('category_id', type=int)
-
-            if not title or not description:
-                flash('Title and description are required.', 'danger')
-            else:
-                new_ticket = Ticket(
-                    title=title,
-                    description=description,
-                    user_id=None,
-                    status=status,
-                    category_id=category_id_form
-                )
-                db.session.add(new_ticket)
-                db.session.commit()
-                flash('Ticket created successfully.', 'success')
-
             return redirect(url_for('admin_dashboard'))
 
         elif action == 'add_comment':
@@ -293,21 +291,24 @@ def user_dashboard():
             if ticket.user_id != current_user.id:
                 abort(403)
 
-            title = request.form.get('title')
-            description = request.form.get('description')
-            status = request.form.get('status')
+            title            = (request.form.get('title') or '').strip()
+            description      = (request.form.get('description') or '').strip()
             category_id_form = request.form.get('category_id', type=int)
+            # Users are not permitted to change ticket status — ignored silently.
 
             updated = False
 
             if title:
+                if not (3 <= len(title) <= 100):
+                    flash('Title must be between 3 and 100 characters.', 'danger')
+                    return redirect(url_for('user_dashboard'))
                 ticket.title = title
                 updated = True
             if description:
+                if len(description) < 10:
+                    flash('Description must be at least 10 characters.', 'danger')
+                    return redirect(url_for('user_dashboard'))
                 ticket.description = description
-                updated = True
-            if status:
-                ticket.status = status
                 updated = True
             if category_id_form is not None:
                 ticket.category_id = category_id_form
@@ -386,21 +387,6 @@ def user_create_ticket():
         return redirect(url_for('user_dashboard'))
 
     return render_template('user_create_ticket.html', form=form, categories=categories)
-
-@app.route('/admin/logout')
-@login_required
-def admin_logout():
-    logout_user()
-    flash('You have been logged out.', 'info')
-    return redirect(url_for('home'))
-
-@app.route('/show_users')
-@login_required
-def show_users():
-    if current_user.role != 'Admin':
-        abort(403)
-    users = User.query.all()
-    return '<br>'.join([f'{u.id} - {u.username} - {u.email} - {u.role}' for u in users])
 
 if __name__ == '__main__':
     with app.app_context():

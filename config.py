@@ -13,3 +13,6 @@ class Config:
     SESSION_COOKIE_SAMESITE = 'Lax'        # CSRF mitigation for cross-site requests
     # Set SESSION_COOKIE_SECURE=true in production (HTTPS only)
     SESSION_COOKIE_SECURE = os.environ.get('SESSION_COOKIE_SECURE', 'false').lower() == 'true'
+
+    # Admin self-registration gate. If empty, /register/admin is completely disabled.
+    ADMIN_REGISTRATION_CODE = os.environ.get('ADMIN_REGISTRATION_CODE', '')
