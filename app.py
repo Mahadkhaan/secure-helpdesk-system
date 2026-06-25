@@ -36,6 +36,31 @@ def create_app(config_class=Config):
     app.register_blueprint(admin_bp)
     app.register_blueprint(user_bp)
 
+    # ── Security headers ───────────────────────────────────────────────────────
+    # Applied to every response regardless of blueprint.
+    # CSP notes:
+    #   script-src: only 'self' and jsDelivr (Bootstrap JS) — no inline scripts exist
+    #   style-src:  'unsafe-inline' is required because templates use inline style=""
+    #               attributes (e.g. max-width, max-height); removing them is left as
+    #               a future hardening step once a static CSS file is introduced
+    @app.after_request
+    def set_security_headers(response):
+        response.headers['X-Content-Type-Options'] = 'nosniff'
+        response.headers['X-Frame-Options'] = 'DENY'
+        response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
+        response.headers['Permissions-Policy'] = 'camera=(), microphone=(), geolocation=()'
+        response.headers['Content-Security-Policy'] = (
+            "default-src 'self'; "
+            "script-src 'self' https://cdn.jsdelivr.net; "
+            "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
+            "img-src 'self' data:; "
+            "font-src 'self' https://cdn.jsdelivr.net; "
+            "frame-ancestors 'none'; "
+            "base-uri 'self'; "
+            "form-action 'self';"
+        )
+        return response
+
     @app.errorhandler(400)
     def bad_request(_):
         actor = current_user.username if current_user.is_authenticated else 'anonymous'
