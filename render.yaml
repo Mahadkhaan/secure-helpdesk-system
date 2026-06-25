@@ -1,0 +1,44 @@
+services:
+  - type: web
+    name: helpdesk-ticket-system
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn "app:create_app()"
+    healthCheckPath: /
+    # Runs flask db upgrade before each new deployment goes live.
+    # Ensures the database schema is always in sync with the code.
+    preDeployCommand: flask db upgrade
+    envVars:
+      # FLASK_APP is required so that `flask db upgrade` (preDeployCommand)
+      # can locate the application factory.
+      - key: FLASK_APP
+        value: app
+
+      # Render generates a cryptographically random value automatically.
+      # Never set this to a fixed value in source control.
+      - key: SECRET_KEY
+        generateValue: true
+
+      # sync: false means Render will NOT read this from the YAML file.
+      # You must set it in the Render dashboard → Environment before deploying.
+      - key: ADMIN_REGISTRATION_CODE
+        sync: false
+
+      - key: SESSION_COOKIE_SECURE
+        value: "true"
+
+      - key: FLASK_DEBUG
+        value: "0"
+
+      # Injected automatically from the linked PostgreSQL database below.
+      - key: DATABASE_URL
+        fromDatabase:
+          name: helpdesk-db
+          property: connectionString
+
+databases:
+  - name: helpdesk-db
+    plan: free
+    databaseName: helpdesk
+    user: helpdesk_user
