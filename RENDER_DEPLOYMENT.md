@@ -49,14 +49,33 @@ The `render.yaml` marks `ADMIN_REGISTRATION_CODE` as `sync: false` — Render wi
 
 Render will:
 1. Install Python dependencies (`pip install -r requirements.txt`)
-2. Run `flask db upgrade` (pre-deploy command — creates all tables)
-3. Start Gunicorn (`gunicorn "app:create_app()"`)
+2. Start Gunicorn (`gunicorn "app:create_app()"`)
 
 Watch the deploy log in the Render dashboard. A successful deploy ends with:
 
 ```
 [INFO] Listening at: http://0.0.0.0:10000
 ```
+
+### Step 5 — Initialise the database and seed categories
+
+Render's free plan does not support pre-deploy commands, so the database migration and category seeding must be run once manually after the first deploy:
+
+1. Go to your **Web Service** → **Shell** tab.
+2. Run the migration to create all tables:
+   ```bash
+   flask db upgrade
+   ```
+3. Seed the default ticket categories:
+   ```bash
+   python init_categories.py
+   ```
+4. Expected output from step 3:
+   ```
+   Default categories added (if not present).
+   ```
+
+> You only need to repeat these steps if you later add new database migrations (`flask db upgrade`) or want to re-seed categories (`python init_categories.py`). Normal code redeployments do not require them.
 
 ---
 
@@ -89,28 +108,11 @@ If you prefer to configure everything through the Render UI:
 
 7. Click **Deploy**.
 
-8. After the first deploy completes, open the **Shell** tab on your web service and run:
+8. After the first deploy completes, open the **Shell** tab on your web service and run both commands in order:
    ```bash
    flask db upgrade
-   ```
-
----
-
-## Post-deployment: seed categories
-
-After the database is initialised, run the category seeder via the Render shell:
-
-1. Go to your Web Service → **Shell** tab.
-2. Run:
-   ```bash
    python init_categories.py
    ```
-3. Expected output:
-   ```
-   Default categories added (if not present).
-   ```
-
-This adds: Software, Hardware, Network, Account, Other.
 
 ---
 
@@ -141,7 +143,7 @@ No application code changes are needed.
 
 ### Migrations
 
-`flask db upgrade` is run automatically as a `preDeployCommand` (render.yaml method) before each new version goes live. For the manual method, run it once from the Shell after the first deploy.
+Run `flask db upgrade` once from the Render Shell after the first deploy. If you later add new migrations, run it again from the Shell after the redeployment completes.
 
 ### Free PostgreSQL expiry
 
@@ -171,8 +173,7 @@ After deployment, test the following in the browser using your Render URL (e.g. 
 
 | Symptom | Likely cause | Fix |
 |---|---|---|
-| `flask db upgrade` fails in pre-deploy | `FLASK_APP` env var not set | Add `FLASK_APP=app` in Environment tab |
-| App starts but database tables missing | Migrations never ran | Open Shell → `flask db upgrade` |
+| App starts but database tables missing | `flask db upgrade` not yet run | Open Shell → run `flask db upgrade` then `python init_categories.py` |
 | `OperationalError: no such table` | Same as above | Same fix |
 | "Admin registration is disabled" | `ADMIN_REGISTRATION_CODE` is empty | Set it in Environment tab and redeploy |
 | Static files / Bootstrap not loading | CSP issue | Check browser console; Bootstrap loads from `cdn.jsdelivr.net` which is whitelisted |

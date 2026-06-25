@@ -6,9 +6,6 @@ services:
     buildCommand: pip install -r requirements.txt
     startCommand: gunicorn "app:create_app()"
     healthCheckPath: /
-    # Runs flask db upgrade before each new deployment goes live.
-    # Ensures the database schema is always in sync with the code.
-    preDeployCommand: flask db upgrade
     envVars:
       # FLASK_APP is required so that `flask db upgrade` (preDeployCommand)
       # can locate the application factory.
