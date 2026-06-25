@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Admin Dashboard</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+</head>
+
+<body>
+  <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+    <div class="container">
+      <a class="navbar-brand" href="{{ url_for('admin_dashboard') }}">Admin Dashboard</a>
+      <div>
+        <a href="{{ url_for('logout') }}" class="btn btn-outline-light">Logout</a>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container my-4">
+    <h3>All Tickets</h3>
+    <div class="mb-3">
+      <a href="{{ url_for('admin_create_ticket') }}" class="btn btn-primary">Create Ticket</a>
+    </div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+          </div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    {% if tickets %}
+    <table class="table table-bordered table-striped">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Title &amp; Actions</th>
+          <th>Description &amp; Category</th>
+          <th>Status &amp; Created By</th>
+          <th>Remarks</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for ticket, username, category_name in tickets %}
+          <tr>
+            <td>{{ ticket.id }}</td>
+
+            <!-- Title update -->
+            <td>
+              <form method="POST" class="mb-2">
+                {{ comment_form.hidden_tag() }}
+                <input type="hidden" name="action" value="update" />
+                <input type="hidden" name="ticket_id" value="{{ ticket.id }}" />
+                <input type="text" name="title" value="{{ ticket.title }}"
+                       placeholder="Title" required class="form-control mb-1" />
+                <button type="submit" class="btn btn-sm btn-success w-100">Update Title</button>
+              </form>
+            </td>
+
+            <!-- Description and Category update -->
+            <td>
+              <form method="POST" class="mb-2">
+                {{ comment_form.hidden_tag() }}
+                <input type="hidden" name="action" value="update" />
+                <input type="hidden" name="ticket_id" value="{{ ticket.id }}" />
+                <textarea name="description" placeholder="Description" required
+                          class="form-control mb-1">{{ ticket.description }}</textarea>
+                <select name="category_id" class="form-select mb-1" required>
+                  {% for category in categories %}
+                    <option value="{{ category.id }}"
+                      {% if ticket.category_id == category.id %}selected{% endif %}>
+                      {{ category.name }}
+                    </option>
+                  {% endfor %}
+                </select>
+                <button type="submit" class="btn btn-sm btn-success w-100">Update Desc &amp; Category</button>
+              </form>
+            </td>
+
+            <!-- Status update and Delete -->
+            <td>
+              <form method="POST" class="mb-2">
+                {{ comment_form.hidden_tag() }}
+                <input type="hidden" name="action" value="update" />
+                <input type="hidden" name="ticket_id" value="{{ ticket.id }}" />
+                <select name="status" class="form-select mb-1" required>
+                  <option value="Open"        {% if ticket.status == 'Open' %}selected{% endif %}>Open</option>
+                  <option value="In Progress" {% if ticket.status == 'In Progress' %}selected{% endif %}>In Progress</option>
+                  <option value="Closed"      {% if ticket.status == 'Closed' %}selected{% endif %}>Closed</option>
+                </select>
+                <button type="submit" class="btn btn-sm btn-success w-100 mb-2">Update Status</button>
+              </form>
+              <p><strong>Created By:</strong> {{ username }}</p>
+              <form method="POST" onsubmit="return confirm('Delete ticket #{{ ticket.id }}?');">
+                {{ comment_form.hidden_tag() }}
+                <input type="hidden" name="action" value="delete" />
+                <input type="hidden" name="ticket_id" value="{{ ticket.id }}" />
+                <button type="submit" class="btn btn-sm btn-danger w-100">Delete Ticket</button>
+              </form>
+            </td>
+
+            <!-- Comments -->
+            <td>
+              <h6>Remarks:</h6>
+              <ul class="list-group mb-2" style="max-height: 150px; overflow-y: auto;">
+                {% for comment in ticket.comments %}
+                  <li class="list-group-item">
+                    <strong>{{ comment.user.username if comment.user else 'Unknown' }}:</strong>
+                    {{ comment.content }}
+                    <br />
+                    <small class="text-muted">{{ comment.created_at.strftime('%Y-%m-%d %H:%M') }}</small>
+                  </li>
+                {% else %}
+                  <li class="list-group-item text-muted">No remarks yet.</li>
+                {% endfor %}
+              </ul>
+              <form method="POST" class="d-flex">
+                {{ comment_form.hidden_tag() }}
+                <input type="hidden" name="action" value="add_comment" />
+                <input type="hidden" name="ticket_id" value="{{ ticket.id }}" />
+                <input type="text" name="content" placeholder="Add a remark..."
+                       class="form-control me-2" maxlength="1000" />
+                <button type="submit" class="btn btn-primary">Add</button>
+              </form>
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+      <p>No tickets found.</p>
+    {% endif %}
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
