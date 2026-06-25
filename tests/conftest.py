@@ -31,9 +31,7 @@ class CSRFConfig(TestingConfig):
 def app():
     application = create_app(TestingConfig)
     with application.app_context():
-        _db.create_all()
-        _db.session.add(Category(name='General'))
-        _db.session.commit()
+        # create_app() already called db.create_all() and seeded default categories.
         yield application
         _db.drop_all()
 

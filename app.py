@@ -3,11 +3,22 @@ load_dotenv()
 
 from flask import Flask, render_template, request
 from flask_login import LoginManager, current_user
-from models import User, db
+from models import User, Category, db
 from flask_migrate import Migrate
 from flask_wtf import CSRFProtect
 from config import Config
 from utils.logging_config import configure_logging
+
+
+DEFAULT_CATEGORIES = ['Software', 'Hardware', 'Network', 'Account', 'Other']
+
+
+def _seed_default_categories():
+    """Insert any missing default categories. Safe to call repeatedly."""
+    for name in DEFAULT_CATEGORIES:
+        if not Category.query.filter_by(name=name).first():
+            db.session.add(Category(name=name))
+    db.session.commit()
 
 
 def create_app(config_class=Config):
@@ -89,12 +100,19 @@ def create_app(config_class=Config):
         )
         return render_template('errors/500.html'), 500
 
+    # Create missing tables and seed defaults on every startup.
+    # db.create_all() is a no-op for tables that already exist, so it is safe
+    # to run alongside Flask-Migrate — migrations remain the source of truth
+    # for schema changes, but this ensures the schema exists even when
+    # flask db upgrade has not been run (e.g. Render free tier, fresh clone).
+    with app.app_context():
+        db.create_all()
+        _seed_default_categories()
+
     return app
 
 
 app = create_app()
 
 if __name__ == '__main__':
-    with app.app_context():
-        db.create_all()
     app.run()
