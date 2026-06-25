@@ -12,6 +12,10 @@ venv/
 env/
 .env/
 
+# ── Logs (keep directory, ignore content) ─────────────────────────────────────
+logs/*.log
+logs/*.log.*
+
 # ── Databases ─────────────────────────────────────────────────────────────────
 *.db
 *.sqlite
