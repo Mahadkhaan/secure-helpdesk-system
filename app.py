@@ -13,6 +13,32 @@ from utils.logging_config import configure_logging
 DEFAULT_CATEGORIES = ['Software', 'Hardware', 'Network', 'Account', 'Other']
 
 
+def _ensure_password_column_width():
+    """On PostgreSQL, widen User.password to TEXT if it's still VARCHAR(128).
+
+    db.create_all() never alters existing columns, so a database that was
+    created before this fix still has VARCHAR(128). This function inspects the
+    live column and issues ALTER TABLE if needed. Safe to call on every startup:
+    if the column is already TEXT the function returns immediately.
+    SQLite does not enforce VARCHAR length, so nothing is done there.
+    """
+    from sqlalchemy import inspect, text
+    if db.engine.dialect.name != 'postgresql':
+        return
+    inspector = inspect(db.engine)
+    if 'user' not in inspector.get_table_names():
+        return
+    cols = {c['name']: c for c in inspector.get_columns('user')}
+    col_type = cols.get('password', {}).get('type')
+    if col_type is None:
+        return
+    # TEXT has no length attribute value; VARCHAR(128) has length=128.
+    if getattr(col_type, 'length', None) is not None:
+        with db.engine.connect() as conn:
+            conn.execute(text('ALTER TABLE "user" ALTER COLUMN password TYPE TEXT'))
+            conn.commit()
+
+
 def _seed_default_categories():
     """Insert any missing default categories. Safe to call repeatedly."""
     for name in DEFAULT_CATEGORIES:
@@ -107,6 +133,7 @@ def create_app(config_class=Config):
     # flask db upgrade has not been run (e.g. Render free tier, fresh clone).
     with app.app_context():
         db.create_all()
+        _ensure_password_column_width()
         _seed_default_categories()
 
     return app
