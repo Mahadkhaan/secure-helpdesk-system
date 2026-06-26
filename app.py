@@ -1,9 +1,10 @@
 from dotenv import load_dotenv
 load_dotenv()
 
+import click
 from flask import Flask, render_template, request
 from flask_login import LoginManager, current_user
-from models import User, Category, db
+from models import User, Category, Ticket, Comment, db
 from flask_migrate import Migrate
 from flask_wtf import CSRFProtect
 from config import Config
@@ -125,6 +126,136 @@ def create_app(config_class=Config):
             request.url, str(e), exc_info=True
         )
         return render_template('errors/500.html'), 500
+
+    @app.cli.command('seed-demo-data')
+    def seed_demo_data():
+        """Create clearly labelled demo accounts, tickets, and comments.
+
+        Passwords are generated randomly at runtime and printed once to the
+        terminal. Missing records are created; existing records are never
+        altered or deleted. Safe to re-run after partial deletion.
+        """
+        import secrets
+        import string
+        from werkzeug.security import generate_password_hash
+
+        def _make_password():
+            """16-char random password that meets the app's own complexity rules."""
+            chars = string.ascii_letters + string.digits + '!@#$%^&*'
+            while True:
+                pwd = ''.join(secrets.choice(chars) for _ in range(16))
+                if (any(c.isupper() for c in pwd)
+                        and any(c.islower() for c in pwd)
+                        and any(c.isdigit() for c in pwd)
+                        and any(c in '!@#$%^&*' for c in pwd)):
+                    return pwd
+
+        cats = {c.name: c for c in Category.query.all()}
+        if not cats:
+            click.echo('No categories found. Start the app once first so categories are seeded.')
+            return
+
+        hw  = cats.get('Hardware') or next(iter(cats.values()))
+        net = cats.get('Network')  or hw
+        acc = cats.get('Account')  or hw
+        sw  = cats.get('Software') or hw
+
+        # ── Users: create only those that do not already exist ────────────────
+        new_credentials = []
+        for username, email, role in [
+            ('demo_admin', 'demo.admin@helpdesk.example', 'Admin'),
+            ('demo_user1', 'demo.user1@helpdesk.example', 'User'),
+            ('demo_user2', 'demo.user2@helpdesk.example', 'User'),
+        ]:
+            if not User.query.filter_by(username=username).first():
+                pwd = _make_password()
+                db.session.add(User(
+                    username=username,
+                    email=email,
+                    password=generate_password_hash(pwd),
+                    role=role,
+                ))
+                new_credentials.append((username, role, pwd))
+        db.session.flush()
+
+        # ── Tickets: create only those that do not already exist ──────────────
+        def _get_user(username):
+            return User.query.filter_by(username=username).first()
+
+        new_tickets = 0
+        for title, description, status, owner_name, cat in [
+            ('[DEMO] Printer not responding',
+             'The office printer on Floor 2 is offline and not accepting print jobs. Restart was attempted with no success.',
+             'Open', 'demo_user1', hw),
+            ('[DEMO] VPN drops after 10 minutes',
+             'Remote VPN connection disconnects automatically after approximately 10 minutes of inactivity. Affects all remote workers.',
+             'In Progress', 'demo_user2', net),
+            ('[DEMO] Password reset needed',
+             'User account locked after too many failed login attempts. Requires admin password reset.',
+             'Closed', 'demo_user1', acc),
+            ('[DEMO] Software licence renewal',
+             'Annual licence for the design suite expires in 14 days. Please raise a purchase order to renew before the deadline.',
+             'Open', 'demo_admin', sw),
+        ]:
+            if not Ticket.query.filter_by(title=title).first():
+                owner = _get_user(owner_name)
+                if owner is None:
+                    click.echo(f'  Skipping ticket {title!r}: owner {owner_name!r} not found.')
+                    continue
+                db.session.add(Ticket(
+                    title=title,
+                    description=description,
+                    status=status,
+                    user_id=owner.id,
+                    category_id=cat.id,
+                    created_by='admin' if owner.role == 'Admin' else 'user',
+                ))
+                new_tickets += 1
+        db.session.flush()
+
+        # ── Comments: one per ticket, skip if admin already commented ─────────
+        admin = _get_user('demo_admin')
+        new_comments = 0
+        if admin:
+            for ticket_title, content in [
+                ('[DEMO] Printer not responding',
+                 'Checked hardware — print queue is jammed. Will clear the spooler and restart the service.'),
+                ('[DEMO] VPN drops after 10 minutes',
+                 'VPN idle-timeout has been extended on the server. Please reconnect and confirm this resolves the issue.'),
+                ('[DEMO] Password reset needed',
+                 'Password has been reset. Please log in and change it immediately.'),
+            ]:
+                ticket = Ticket.query.filter_by(title=ticket_title).first()
+                if ticket and not Comment.query.filter_by(
+                        ticket_id=ticket.id, user_id=admin.id).first():
+                    db.session.add(Comment(
+                        content=content,
+                        user_id=admin.id,
+                        ticket_id=ticket.id,
+                    ))
+                    new_comments += 1
+        db.session.commit()
+
+        # ── Output ────────────────────────────────────────────────────────────
+        if not new_credentials and not new_tickets and not new_comments:
+            click.echo('Demo data already present — nothing changed.')
+            return
+
+        click.echo('Demo data seeded:')
+        if new_credentials:
+            click.echo(f'  Users created:    {len(new_credentials)}')
+        if new_tickets:
+            click.echo(f'  Tickets created:  {new_tickets}')
+        if new_comments:
+            click.echo(f'  Comments created: {new_comments}')
+
+        if new_credentials:
+            click.echo('')
+            click.echo('Generated credentials (save these now — will not be shown again):')
+            for username, role, pwd in new_credentials:
+                click.echo(f'  {username:<12} [{role:<5}] : {pwd}')
+            click.echo('')
+            click.echo('WARNING: Delete or change these accounts before real use.')
 
     # Create missing tables and seed defaults on every startup.
     # db.create_all() is a no-op for tables that already exist, so it is safe

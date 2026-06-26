@@ -291,3 +291,49 @@ pip install psycopg2-binary
 ```
 
 No application code changes are needed — SQLAlchemy handles the dialect automatically.
+
+---
+
+## Demo / Sample Data
+
+The `flask seed-demo-data` command creates clearly labelled demo accounts, tickets, and comments so the app can be demonstrated without manual data entry. It is **idempotent** — running it a second time prints a notice and changes nothing.
+
+### What it creates
+
+| Type | Records |
+|---|---|
+| Users | `demo_admin` (Admin), `demo_user1` (User), `demo_user2` (User) |
+| Tickets | 4 tickets across Hardware, Network, Account, and Software categories |
+| Comments | 3 admin comments on the tickets |
+
+All tickets are prefixed `[DEMO]` so they are easy to identify and delete.
+
+### Demo credentials
+
+Passwords are **generated randomly at runtime** using Python's `secrets` module. They are printed once to the terminal when the command runs and are never stored in source code, configuration files, or logs. Copy them from the terminal output before proceeding.
+
+> Delete or change the demo accounts before using this as a real system.
+
+### Run locally (against local SQLite)
+
+```bash
+# Make sure the app has been started at least once so categories are seeded first.
+flask seed-demo-data
+```
+
+### Run against the production PostgreSQL database
+
+Because Render's free tier does not provide shell access, run the command locally while pointing at the production database:
+
+1. Open the Render dashboard → **helpdesk-db** → **Connection** → copy the **External Database URL**.
+2. Add it to your local `.env` temporarily:
+   ```
+   DATABASE_URL=postgresql://...   # paste the external URL here
+   ```
+3. Run the seeder locally:
+   ```bash
+   flask seed-demo-data
+   ```
+4. Remove or restore the `DATABASE_URL` line in `.env` when done.
+
+> Never commit a production `DATABASE_URL` to version control.
