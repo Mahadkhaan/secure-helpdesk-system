@@ -96,12 +96,34 @@
                 <button type="submit" class="btn btn-sm btn-success w-100 mb-2">Update Status</button>
               </form>
               <p><strong>Created By:</strong> {{ username }}</p>
-              <form method="POST" onsubmit="return confirm('Delete ticket #{{ ticket.id }}?');">
-                {{ comment_form.hidden_tag() }}
-                <input type="hidden" name="action" value="delete" />
-                <input type="hidden" name="ticket_id" value="{{ ticket.id }}" />
-                <button type="submit" class="btn btn-sm btn-danger w-100">Delete Ticket</button>
-              </form>
+              <button type="button" class="btn btn-sm btn-danger w-100"
+                      data-bs-toggle="modal" data-bs-target="#deleteModal{{ ticket.id }}">
+                Delete Ticket
+              </button>
+
+              <div class="modal fade" id="deleteModal{{ ticket.id }}" tabindex="-1" aria-hidden="true">
+                <div class="modal-dialog modal-sm">
+                  <div class="modal-content">
+                    <div class="modal-header">
+                      <h5 class="modal-title">Confirm Delete</h5>
+                      <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                      Delete ticket <strong>#{{ ticket.id }}: {{ ticket.title }}</strong>?
+                      This cannot be undone.
+                    </div>
+                    <div class="modal-footer">
+                      <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                      <form method="POST">
+                        {{ comment_form.hidden_tag() }}
+                        <input type="hidden" name="action" value="delete" />
+                        <input type="hidden" name="ticket_id" value="{{ ticket.id }}" />
+                        <button type="submit" class="btn btn-danger">Delete</button>
+                      </form>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </td>
 
             <!-- Comments -->
